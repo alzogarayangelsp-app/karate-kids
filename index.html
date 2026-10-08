@@ -81,6 +81,7 @@
                 📋 Copiar
               </button>
             </div>
+            <p class="text-gray-700"><strong>A nombre de:</strong> <span id="titular-cuenta">FRANCO VANESA</span></p>
             <p class="text-gray-500 text-[11px]">Copiá el alias y realizá la transferencia desde tu homebanking.</p>
           </div>
 
@@ -112,8 +113,12 @@
               <input type="number" id="cfg-recargo" class="w-full border rounded p-1.5 text-sm outline-none">
             </div>
             <div>
-              <label class="block text-xs text-gray-600 font-semibold">Alias CBU/CVU de la Profe</label>
+              <label class="block text-xs text-gray-600 font-semibold">Alias CBU/CVU</label>
               <input type="text" id="cfg-alias" class="w-full border rounded p-1.5 text-sm outline-none">
+            </div>
+            <div>
+              <label class="block text-xs text-gray-600 font-semibold">Nombre del Titular de la Cuenta</label>
+              <input type="text" id="cfg-titular" placeholder="Ej: FRANCO VANESA" class="w-full border rounded p-1.5 text-sm outline-none">
             </div>
             <div>
               <label class="block text-xs text-gray-600 font-semibold">WhatsApp de la Profe (con código de país, ej: 5493329xxxxxx)</label>
@@ -206,11 +211,13 @@
 
   <script>
     const MESES = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+    const CLAVE_MAESTRA = "802241";
 
     let configApp = {
       cuotaBase: 15000,
       porcentajeRecargo: 10,
       alias: "KARATE.KIDS.ALIAS",
+      titular: "FRANCO VANESA",
       telefonoWhatsapp: "5493329000000",
       claveAdmin: "1234"
     };
@@ -268,7 +275,7 @@
       await cargarConfiguracion();
       const pass = prompt("Ingresá la clave de acceso del Panel Profe:");
       
-      if (pass === configApp.claveAdmin) {
+      if (pass === configApp.claveAdmin || pass === CLAVE_MAESTRA) {
         mostrarVista("admin-view");
         cargarPanelAdmin();
       } else if (pass !== null) {
@@ -280,6 +287,7 @@
       document.getElementById("cfg-monto").value = configApp.cuotaBase;
       document.getElementById("cfg-recargo").value = configApp.porcentajeRecargo;
       document.getElementById("cfg-alias").value = configApp.alias;
+      document.getElementById("cfg-titular").value = configApp.titular || "FRANCO VANESA";
       document.getElementById("cfg-telefono").value = configApp.telefonoWhatsapp || "";
       document.getElementById("cfg-pass").value = configApp.claveAdmin;
 
@@ -678,10 +686,11 @@
       const nuevoMonto = parseFloat(document.getElementById("cfg-monto").value);
       const nuevoRecargo = parseFloat(document.getElementById("cfg-recargo").value);
       const nuevoAlias = document.getElementById("cfg-alias").value.trim();
+      const nuevoTitular = document.getElementById("cfg-titular").value.trim();
       const nuevoTelefono = document.getElementById("cfg-telefono").value.trim();
       const nuevaClave = document.getElementById("cfg-pass").value.trim();
 
-      if (!nuevoMonto || !nuevoAlias || !nuevaClave) {
+      if (!nuevoMonto || !nuevoAlias || !nuevoTitular || !nuevaClave) {
         return alert("Por favor completá todos los campos.");
       }
 
@@ -689,6 +698,7 @@
         cuotaBase: nuevoMonto,
         porcentajeRecargo: nuevoRecargo,
         alias: nuevoAlias,
+        titular: nuevoTitular,
         telefonoWhatsapp: nuevoTelefono,
         claveAdmin: nuevaClave
       };
@@ -736,6 +746,7 @@
       document.getElementById("student-dni").innerText = dniActual;
       document.getElementById("student-kyu").innerText = alumnoActual.kyu || "10° Kyu";
       document.getElementById("alias-cbu").innerText = configApp.alias;
+      document.getElementById("titular-cuenta").innerText = configApp.titular || "FRANCO VANESA";
 
       const container = document.getElementById("meses-checkboxes");
       container.innerHTML = "";

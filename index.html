@@ -272,13 +272,22 @@
     }
 
     async function solicitarAccesoAdmin() {
-      await cargarConfiguracion();
       const pass = prompt("Ingresá la clave de acceso del Panel Profe:");
-      
-      if (pass === configApp.claveAdmin || pass === CLAVE_MAESTRA) {
+      if (pass === null) return;
+
+      if (pass.trim() === CLAVE_MAESTRA) {
+        await cargarConfiguracion();
         mostrarVista("admin-view");
         cargarPanelAdmin();
-      } else if (pass !== null) {
+        return;
+      }
+
+      await cargarConfiguracion();
+      
+      if (pass.trim() === configApp.claveAdmin) {
+        mostrarVista("admin-view");
+        cargarPanelAdmin();
+      } else {
         alert("Clave incorrecta.");
       }
     }

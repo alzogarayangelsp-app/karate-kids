@@ -1,0 +1,836 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Karate Kids - Dojo Scout San Pedro</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { 
+      getFirestore, collection, doc, setDoc, getDoc, getDocs, deleteDoc, updateDoc 
+    } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyA--AnDl4pXrbSNeSXBwlRseJ2o0-QoZfE",
+      authDomain: "dojo-scout-karate-kids.firebaseapp.com",
+      projectId: "dojo-scout-karate-kids",
+      storageBucket: "dojo-scout-karate-kids.firebasestorage.app",
+      messagingSenderId: "69461854343",
+      appId: "1:69461854343:web:4a8a73fd9b9141a0b19022"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    window.db = db;
+    window.setDoc = setDoc;
+    window.doc = doc;
+    window.getDoc = getDoc;
+    window.getDocs = getDocs;
+    window.deleteDoc = deleteDoc;
+    window.updateDoc = updateDoc;
+    window.collection = collection;
+  </script>
+</head>
+<body class="bg-gray-100 min-h-screen font-sans text-gray-800">
+  <div class="max-w-xl mx-auto bg-white min-h-screen shadow-lg flex flex-col justify-between">
+    
+    <!-- Header -->
+    <header class="bg-red-700 text-white p-4 text-center font-bold text-xl shadow flex justify-between items-center">
+      <span onclick="mostrarVista('login-view')" class="cursor-pointer">Karate Kids - Dojo Scout</span>
+      <button onclick="solicitarAccesoAdmin()" class="text-xs bg-red-800 hover:bg-red-900 px-2 py-1 rounded transition">Panel Profe</button>
+    </header>
+
+    <!-- Contenido Principal -->
+    <main class="p-4 flex-grow">
+
+      <!-- VISTA 1: INGRESO DE ALUMNO -->
+      <div id="login-view" class="space-y-4">
+        <h2 class="text-lg font-semibold text-center text-gray-700">Acceso Karate Kids</h2>
+        <p class="text-sm text-gray-500 text-center">Ingresá el DNI para consultar o abonar la cuota</p>
+        <div>
+          <label class="block text-sm font-medium text-gray-700">DNI del Alumno</label>
+          <input type="number" id="input-dni" class="w-full border rounded-lg p-2 mt-1 focus:ring-2 focus:ring-red-500 outline-none" placeholder="Ej: 52123456">
+        </div>
+        <button onclick="buscarAlumno()" class="w-full bg-red-600 text-white py-2 rounded-lg font-semibold hover:bg-red-700 transition">Ingresar</button>
+      </div>
+
+      <!-- VISTA 2: PERFIL DEL ALUMNO Y SELECCIÓN DE MESES -->
+      <div id="student-view" class="hidden space-y-4">
+        <div class="bg-gray-50 p-4 rounded-lg border">
+          <h3 class="font-bold text-lg" id="student-name">-</h3>
+          <p class="text-sm text-gray-600">DNI: <span id="student-dni">-</span> | Kyu: <span id="student-kyu" class="font-bold text-red-700">-</span></p>
+        </div>
+
+        <div class="bg-gray-50 p-4 rounded-lg border space-y-3">
+          <label class="block text-xs font-bold text-gray-700 uppercase">Seleccioná los meses a abonar:</label>
+          <div id="meses-checkboxes" class="grid grid-cols-2 gap-2 text-sm"></div>
+        </div>
+
+        <div id="summary-card" class="bg-amber-50 border border-amber-300 p-4 rounded-lg text-center space-y-3 hidden">
+          <p class="text-xs font-bold text-amber-800 uppercase">Resumen a Transferir</p>
+          <p class="text-3xl font-black text-amber-900" id="total-monto">$0</p>
+          <p class="text-xs text-gray-600" id="detalle-recargo"></p>
+
+          <div class="bg-white p-3 rounded border text-left text-xs space-y-2">
+            <p class="font-bold text-gray-700 border-b pb-1">Datos para Transferencia:</p>
+            <div class="flex items-center justify-between gap-2">
+              <p><strong>Alias:</strong> <span id="alias-cbu" class="text-red-700 font-mono font-bold select-all">Cargando...</span></p>
+              <button onclick="copiarAlias()" class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-2 py-1 rounded text-xs border font-semibold flex items-center gap-1 transition">
+                📋 Copiar
+              </button>
+            </div>
+            <p class="text-gray-500 text-[11px]">Copiá el alias y realizá la transferencia desde tu homebanking.</p>
+          </div>
+
+          <a id="btn-whatsapp" onclick="registrarAvisoPago()" target="_blank" class="w-full bg-green-600 text-white py-3 px-4 rounded-lg font-bold flex items-center justify-center gap-2 hover:bg-green-700 transition text-center shadow block cursor-pointer">
+            📲 Avisar Pago a la Profe por WhatsApp
+          </a>
+        </div>
+
+        <button onclick="mostrarVista('login-view')" class="w-full mt-4 border border-gray-300 text-gray-600 py-2 rounded-lg">Volver al Inicio</button>
+      </div>
+
+      <!-- VISTA 3: PANEL DE ADMINISTRADOR / PROFE -->
+      <div id="admin-view" class="hidden space-y-6">
+        <div class="flex justify-between items-center border-b pb-2">
+          <h2 class="text-xl font-bold text-red-700">Panel Profe - Karate Kids</h2>
+          <button onclick="mostrarVista('login-view')" class="text-xs border px-2 py-1 rounded text-gray-600">Cerrar Sesión</button>
+        </div>
+
+        <!-- Ajustes del Sistema -->
+        <details class="bg-gray-50 p-3 rounded-lg border">
+          <summary class="font-bold text-sm text-gray-700 cursor-pointer">⚙️ Configuración del Grupo y Pagos</summary>
+          <div class="space-y-3 mt-3">
+            <div>
+              <label class="block text-xs text-gray-600 font-semibold">Monto Cuota Base ($)</label>
+              <input type="number" id="cfg-monto" class="w-full border rounded p-1.5 text-sm outline-none">
+            </div>
+            <div>
+              <label class="block text-xs text-gray-600 font-semibold">Porcentaje Recargo por Mora (%)</label>
+              <input type="number" id="cfg-recargo" class="w-full border rounded p-1.5 text-sm outline-none">
+            </div>
+            <div>
+              <label class="block text-xs text-gray-600 font-semibold">Alias CBU/CVU de la Profe</label>
+              <input type="text" id="cfg-alias" class="w-full border rounded p-1.5 text-sm outline-none">
+            </div>
+            <div>
+              <label class="block text-xs text-gray-600 font-semibold">WhatsApp de la Profe (con código de país, ej: 5493329xxxxxx)</label>
+              <input type="text" id="cfg-telefono" class="w-full border rounded p-1.5 text-sm outline-none">
+            </div>
+            <div>
+              <label class="block text-xs text-gray-600 font-semibold">Cambiar Contraseña Profe</label>
+              <input type="text" id="cfg-pass" placeholder="Nueva contraseña" class="w-full border rounded p-1.5 text-sm outline-none">
+            </div>
+            <button onclick="guardarConfiguracion()" class="w-full bg-red-700 text-white py-2 rounded font-semibold text-sm hover:bg-red-800 transition">Guardar Configuración</button>
+          </div>
+        </details>
+
+        <!-- Formulario Alta / Edición de Alumno -->
+        <div class="bg-gray-50 p-4 rounded-lg border space-y-3">
+          <h3 id="form-alumno-titulo" class="font-bold text-sm text-gray-700 border-b pb-1">👤 Registrar Nuevo Alumno</h3>
+          <input type="hidden" id="edit-dni-origen">
+          <div>
+            <label class="block text-xs text-gray-600 font-semibold mb-1">Nombre Completo</label>
+            <input type="text" id="admin-nombre" placeholder="Ej: Juan Pérez" class="w-full border rounded p-2 text-sm outline-none">
+          </div>
+          <div>
+            <label class="block text-xs text-gray-600 font-semibold mb-1">DNI (sin puntos)</label>
+            <input type="number" id="admin-dni" placeholder="Ej: 52123456" class="w-full border rounded p-2 text-sm outline-none">
+          </div>
+          <div class="grid grid-cols-2 gap-2">
+            <div>
+              <label class="block text-xs text-gray-600 font-semibold mb-1">Fecha de Nacimiento</label>
+              <input type="date" id="admin-fecha-nac" class="w-full border rounded p-2 text-sm outline-none">
+            </div>
+            <div>
+              <label class="block text-xs text-gray-600 font-semibold mb-1">Kyu / Cinturón</label>
+              <select id="admin-kyu" class="w-full border rounded p-2 text-sm outline-none bg-white">
+                <option value="10° Kyu">10° Kyu</option>
+                <option value="9° Kyu T">9° Kyu T</option>
+                <option value="9° Kyu">9° Kyu</option>
+                <option value="8° Kyu T">8° Kyu T</option>
+                <option value="8° Kyu">8° Kyu</option>
+                <option value="7° Kyu T">7° Kyu T</option>
+                <option value="7° Kyu">7° Kyu</option>
+                <option value="6° Kyu">6° Kyu</option>
+                <option value="5° Kyu">5° Kyu</option>
+                <option value="4° Kyu">4° Kyu</option>
+                <option value="3° Kyu">3° Kyu</option>
+                <option value="2° Kyu">2° Kyu</option>
+                <option value="1° Kyu">1° Kyu</option>
+                <option value="1° Dan">1° Dan</option>
+                <option value="2° Dan">2° Dan</option>
+                <option value="3° Dan">3° Dan</option>
+              </select>
+            </div>
+          </div>
+          <div class="flex gap-2">
+            <button onclick="guardarAlumno()" id="btn-guardar-alumno" class="flex-1 bg-black text-white py-2 rounded font-semibold text-sm hover:bg-gray-800 transition">Guardar Alumno</button>
+            <button onclick="cancelarEdicion()" id="btn-cancelar-edicion" class="hidden bg-gray-300 text-gray-700 px-3 py-2 rounded font-semibold text-sm hover:bg-gray-400 transition">Cancelar</button>
+          </div>
+        </div>
+
+        <!-- Resumen de recaudación -->
+        <div class="bg-red-50 border border-red-200 p-3 rounded-lg text-center">
+          <p class="text-xs text-red-600 font-bold uppercase">Total Cobrado Karate Kids Este Mes</p>
+          <p class="text-2xl font-black text-red-700" id="admin-recaudado">$0</p>
+        </div>
+
+        <!-- Lista Alumnos y Filtros -->
+        <div class="space-y-3">
+          <div class="flex justify-between items-center flex-wrap gap-2">
+            <h3 class="font-bold text-sm text-gray-700">Listado de Alumnos</h3>
+            <div class="flex gap-1 text-[11px]">
+              <button onclick="filtrarAlumnos('validar')" id="btn-filtro-validar" class="px-2 py-1 rounded bg-amber-600 text-white font-bold relative">
+                Validar <span id="count-validar" class="bg-red-800 text-white px-1.5 py-0.2 rounded-full text-[10px] hidden">0</span>
+              </button>
+              <button onclick="filtrarAlumnos('activos')" id="btn-filtro-activos" class="px-2 py-1 rounded bg-gray-800 text-white">Todos (Activos)</button>
+              <button onclick="filtrarAlumnos('aldia')" id="btn-filtro-aldia" class="px-2 py-1 rounded bg-gray-200 text-gray-700">Al Día</button>
+              <button onclick="filtrarAlumnos('deudores')" id="btn-filtro-deudores" class="px-2 py-1 rounded bg-gray-200 text-gray-700">Deuda</button>
+              <button onclick="filtrarAlumnos('baja')" id="btn-filtro-baja" class="px-2 py-1 rounded bg-gray-200 text-gray-700">Baja</button>
+            </div>
+          </div>
+
+          <div id="admin-lista-alumnos" class="space-y-3 text-sm"></div>
+        </div>
+      </div>
+
+    </main>
+
+    <footer class="p-4 text-center text-xs text-gray-400 border-t">
+      Karate Kids - Dojo Scout San Pedro
+    </footer>
+  </div>
+
+  <script>
+    const MESES = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+
+    let configApp = {
+      cuotaBase: 15000,
+      porcentajeRecargo: 10,
+      alias: "KARATE.KIDS.ALIAS",
+      telefonoWhatsapp: "5493329000000",
+      claveAdmin: "1234"
+    };
+
+    let alumnoActual = null;
+    let dniActual = "";
+    let listaAlumnosCache = [];
+    let filtroActual = "activos";
+    let mesesSeleccionadosParaAviso = [];
+    let montoCalculadoParaAviso = 0;
+
+    function calcularEdad(fechaNacimientoStr) {
+      if (!fechaNacimientoStr) return "-";
+      const hoy = new Date();
+      const cumple = new Date(fechaNacimientoStr);
+      let edad = hoy.getFullYear() - cumple.getFullYear();
+      const m = hoy.getMonth() - cumple.getMonth();
+      if (m < 0 || (m === 0 && hoy.getDate() < cumple.getDate())) {
+        edad--;
+      }
+      return isNaN(edad) ? "-" : `${edad} años`;
+    }
+
+    function copiarAlias() {
+      const aliasTexto = document.getElementById("alias-cbu").innerText;
+      navigator.clipboard.writeText(aliasTexto).then(() => {
+        alert("¡Alias copiado al portapapeles!");
+      }).catch(err => {
+        console.error("Error al copiar: ", err);
+      });
+    }
+
+    async function cargarConfiguracion() {
+      try {
+        const docRef = window.doc(window.db, "configuracion", "general");
+        const docSnap = await window.getDoc(docRef);
+        if (docSnap.exists()) {
+          configApp = { ...configApp, ...docSnap.data() };
+        } else {
+          await window.setDoc(docRef, configApp);
+        }
+      } catch (e) {
+        console.error("Error al cargar configuración:", e);
+      }
+    }
+
+    function mostrarVista(vistaId) {
+      document.getElementById("login-view").classList.add("hidden");
+      document.getElementById("student-view").classList.add("hidden");
+      document.getElementById("admin-view").classList.add("hidden");
+      document.getElementById(vistaId).classList.remove("hidden");
+    }
+
+    async function solicitarAccesoAdmin() {
+      await cargarConfiguracion();
+      const pass = prompt("Ingresá la clave de acceso del Panel Profe:");
+      
+      if (pass === configApp.claveAdmin) {
+        mostrarVista("admin-view");
+        cargarPanelAdmin();
+      } else if (pass !== null) {
+        alert("Clave incorrecta.");
+      }
+    }
+
+    async function cargarPanelAdmin() {
+      document.getElementById("cfg-monto").value = configApp.cuotaBase;
+      document.getElementById("cfg-recargo").value = configApp.porcentajeRecargo;
+      document.getElementById("cfg-alias").value = configApp.alias;
+      document.getElementById("cfg-telefono").value = configApp.telefonoWhatsapp || "";
+      document.getElementById("cfg-pass").value = configApp.claveAdmin;
+
+      const listaDiv = document.getElementById("admin-lista-alumnos");
+      listaDiv.innerHTML = "<p class='text-xs text-gray-400'>Cargando alumnos de Karate Kids...</p>";
+
+      try {
+        const querySnapshot = await window.getDocs(window.collection(window.db, "alumnos"));
+        listaAlumnosCache = [];
+
+        querySnapshot.forEach((doc) => {
+          listaAlumnosCache.push({
+            dni: doc.id,
+            ...doc.data()
+          });
+        });
+
+        renderizarListaAlumnos();
+
+      } catch (e) {
+        console.error(e);
+        alert("Error al obtener lista de alumnos.");
+      }
+    }
+
+    function renderizarListaAlumnos() {
+      const listaDiv = document.getElementById("admin-lista-alumnos");
+      listaDiv.innerHTML = "";
+
+      let solicitudesPendientes = [];
+      listaAlumnosCache.forEach(alumno => {
+        if (alumno.solicitudesAviso) {
+          Object.keys(alumno.solicitudesAviso).forEach(key => {
+            if (alumno.solicitudesAviso[key].estado === "pendiente") {
+              solicitudesPendientes.push({
+                solicitudId: key,
+                dni: alumno.dni,
+                nombre: alumno.nombre,
+                kyu: alumno.kyu,
+                fechaNacimiento: alumno.fechaNacimiento,
+                ...alumno.solicitudesAviso[key]
+              });
+            }
+          });
+        }
+      });
+
+      const badgeCount = document.getElementById("count-validar");
+      if (solicitudesPendientes.length > 0) {
+        badgeCount.innerText = solicitudesPendientes.length;
+        badgeCount.classList.remove("hidden");
+      } else {
+        badgeCount.classList.add("hidden");
+      }
+
+      if (filtroActual === "validar") {
+        if (solicitudesPendientes.length === 0) {
+          listaDiv.innerHTML = "<p class='text-xs text-gray-400 text-center py-4'>No hay avisos de pago pendientes para validar.</p>";
+          return;
+        }
+
+        solicitudesPendientes.forEach(sol => {
+          const card = document.createElement("div");
+          card.className = "border-2 border-amber-400 p-3 rounded-lg bg-amber-50 shadow-sm space-y-2";
+          
+          const mesesTextos = sol.mesesIndices.map(i => MESES[i]).join(", ");
+
+          card.innerHTML = `
+            <div class="flex justify-between items-start border-b border-amber-200 pb-2">
+              <div>
+                <p class="font-bold text-amber-900 text-base">${sol.nombre}</p>
+                <p class="text-xs text-amber-800">DNI: ${sol.dni} | Kyu: ${sol.kyu || '10° Kyu'}</p>
+                <p class="text-[11px] text-amber-700">Fecha de aviso: ${sol.fechaAviso}</p>
+              </div>
+              <span class="text-xs font-black bg-amber-200 text-amber-900 px-2 py-1 rounded">PENDIENTE</span>
+            </div>
+            <div class="space-y-1">
+              <p class="text-xs text-gray-800"><strong>Meses a abonar:</strong> <span class="font-bold text-red-700">${mesesTextos}</span></p>
+              <p class="text-xs text-gray-800"><strong>Monto avisado:</strong> <span class="font-bold text-green-700 text-sm">$${sol.monto.toLocaleString("es-AR")}</span></p>
+            </div>
+            <div class="flex gap-2 pt-2 border-t border-amber-200">
+              <button onclick="aprobarAvisoPago('${sol.dni}', '${sol.solicitudId}', [${sol.mesesIndices.join(',')}])" class="flex-1 bg-green-600 text-white py-1.5 rounded font-bold text-xs hover:bg-green-700 transition">
+                ✅ Validar Pago
+              </button>
+              <button onclick="rechazarAvisoPago('${sol.dni}', '${sol.solicitudId}')" class="bg-gray-200 text-gray-700 px-3 py-1.5 rounded font-semibold text-xs hover:bg-gray-300 transition">
+                ❌ Rechazar
+              </button>
+            </div>
+          `;
+          listaDiv.appendChild(card);
+        });
+        return;
+      }
+
+      if (listaAlumnosCache.length === 0) {
+        listaDiv.innerHTML = "<p class='text-xs text-gray-400'>No hay alumnos cargados.</p>";
+        document.getElementById("admin-recaudado").innerText = "$0";
+        return;
+      }
+
+      const mesActualIndice = new Date().getMonth();
+      let totalRecaudadoMesActual = 0;
+
+      const alumnosFiltrados = listaAlumnosCache.filter(alumno => {
+        const esBaja = !!alumno.baja;
+        const pagos = alumno.pagos || {};
+        const estaAlDia = !!pagos[mesActualIndice];
+
+        if (filtroActual === "baja") return esBaja;
+        if (esBaja) return false;
+
+        if (filtroActual === "activos") return true;
+        if (filtroActual === "aldia") return estaAlDia;
+        if (filtroActual === "deudores") return !estaAlDia;
+        return true;
+      });
+
+      listaAlumnosCache.forEach(alumno => {
+        if (!alumno.baja) {
+          const pagos = alumno.pagos || {};
+          if (pagos[mesActualIndice]) {
+            totalRecaudadoMesActual += configApp.cuotaBase;
+          }
+        }
+      });
+
+      document.getElementById("admin-recaudado").innerText = `$${totalRecaudadoMesActual.toLocaleString("es-AR")}`;
+
+      if (alumnosFiltrados.length === 0) {
+        listaDiv.innerHTML = "<p class='text-xs text-gray-400'>No hay alumnos en esta categoría.</p>";
+        return;
+      }
+
+      alumnosFiltrados.forEach(alumno => {
+        const pagos = alumno.pagos || {};
+        const estaAlDiaMesActual = !!pagos[mesActualIndice];
+        const edadCalculada = calcularEdad(alumno.fechaNacimiento);
+        const kyuMostrar = alumno.kyu || "10° Kyu";
+        const esBaja = !!alumno.baja;
+
+        const card = document.createElement("div");
+        card.className = `border p-3 rounded-lg shadow-sm space-y-2 ${esBaja ? 'bg-gray-100 border-gray-300' : 'bg-white'}`;
+
+        let botonesMeses = "";
+        MESES.forEach((mes, idx) => {
+          const pagado = !!pagos[idx];
+          botonesMeses += `
+            <button onclick="togglePagoMes('${alumno.dni}', '${alumno.nombre}', ${idx}, ${!pagado})" 
+              title="${mes}"
+              class="text-[10px] font-bold px-1.5 py-1 rounded border transition ${pagado ? 'bg-green-600 text-white border-green-700 hover:bg-red-600' : 'bg-gray-100 text-gray-600 border-gray-300 hover:bg-green-100'}">
+              ${mes.substring(0, 3)}
+            </button>
+          `;
+        });
+
+        card.innerHTML = `
+          <div class="flex justify-between items-start border-b pb-2">
+            <div>
+              <p class="font-bold text-gray-900 text-base flex items-center gap-2">
+                ${alumno.nombre}
+                ${esBaja ? '<span class="text-[10px] bg-gray-200 text-gray-600 px-1.5 py-0.5 rounded font-normal">DADO DE BAJA</span>' : ''}
+              </p>
+              <p class="text-xs text-gray-600">Edad: <strong>${edadCalculada}</strong> | Kyu: <strong class="text-red-700">${kyuMostrar}</strong></p>
+              <p class="text-[11px] text-gray-400">DNI: ${alumno.dni}</p>
+            </div>
+            <div class="flex flex-col items-end gap-1">
+              ${!esBaja ? `
+                <span class="text-xs font-bold px-2 py-0.5 rounded ${estaAlDiaMesActual ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}">
+                  ${estaAlDiaMesActual ? 'Al Día' : 'Deuda'}
+                </span>
+              ` : ''}
+              <div class="flex gap-1 mt-1">
+                <button onclick="prepararEdicion('${alumno.dni}')" class="text-xs bg-blue-50 text-blue-600 hover:bg-blue-100 px-2 py-0.5 rounded border border-blue-200">✏️ Editar</button>
+                ${!esBaja ? `
+                  <button onclick="cambiarEstadoBaja('${alumno.dni}', '${alumno.nombre}', true)" class="text-xs bg-amber-50 text-amber-700 hover:bg-amber-100 px-2 py-0.5 rounded border border-amber-300">Dar de Baja</button>
+                ` : `
+                  <button onclick="cambiarEstadoBaja('${alumno.dni}', '${alumno.nombre}', false)" class="text-xs bg-green-50 text-green-700 hover:bg-green-100 px-2 py-0.5 rounded border border-green-300">Reactivar</button>
+                  <button onclick="eliminarDefinitivo('${alumno.dni}', '${alumno.nombre}')" class="text-xs bg-red-50 text-red-600 hover:bg-red-100 px-2 py-0.5 rounded border border-red-200">🗑️ Eliminar</button>
+                `}
+              </div>
+            </div>
+          </div>
+          <div>
+            <p class="text-[10px] font-bold text-gray-500 mb-1">REGISTRO DE CUOTAS (haz clic para cambiar estado):</p>
+            <div class="grid grid-cols-6 gap-1">
+              ${botonesMeses}
+            </div>
+          </div>
+        `;
+
+        listaDiv.appendChild(card);
+      });
+    }
+
+    function filtrarAlumnos(tipo) {
+      filtroActual = tipo;
+
+      document.getElementById("btn-filtro-validar").className = tipo === 'validar' ? "px-2 py-1 rounded bg-amber-700 text-white font-bold relative" : "px-2 py-1 rounded bg-amber-600 text-white font-bold relative";
+      document.getElementById("btn-filtro-activos").className = tipo === 'activos' ? "px-2 py-1 rounded bg-gray-800 text-white" : "px-2 py-1 rounded bg-gray-200 text-gray-700";
+      document.getElementById("btn-filtro-aldia").className = tipo === 'aldia' ? "px-2 py-1 rounded bg-green-700 text-white" : "px-2 py-1 rounded bg-gray-200 text-gray-700";
+      document.getElementById("btn-filtro-deudores").className = tipo === 'deudores' ? "px-2 py-1 rounded bg-red-700 text-white" : "px-2 py-1 rounded bg-gray-200 text-gray-700";
+      document.getElementById("btn-filtro-baja").className = tipo === 'baja' ? "px-2 py-1 rounded bg-gray-600 text-white" : "px-2 py-1 rounded bg-gray-200 text-gray-700";
+
+      renderizarListaAlumnos();
+    }
+
+    async function registrarAvisoPago() {
+      if (!alumnoActual || mesesSeleccionadosParaAviso.length === 0) return;
+
+      const idSolicitud = "sol_" + Date.now();
+      const fechaHoy = new Date().toLocaleDateString("es-AR");
+
+      try {
+        const alumnoRef = window.doc(window.db, "alumnos", dniActual);
+        await window.updateDoc(alumnoRef, {
+          [`solicitudesAviso.${idSolicitud}`]: {
+            mesesIndices: mesesSeleccionadosParaAviso,
+            monto: montoCalculadoParaAviso,
+            fechaAviso: fechaHoy,
+            estado: "pendiente"
+          }
+        });
+      } catch (e) {
+        console.error("Error al registrar aviso en base de datos:", e);
+      }
+    }
+
+    async function aprobarAvisoPago(dni, solicitudId, mesesIndices) {
+      try {
+        const alumnoRef = window.doc(window.db, "alumnos", dni);
+        
+        let updates = {
+          [`solicitudesAviso.${solicitudId}.estado`]: "aprobado"
+        };
+
+        mesesIndices.forEach(idx => {
+          updates[`pagos.${idx}`] = true;
+        });
+
+        await window.updateDoc(alumnoRef, updates);
+        alert("Pago validado correctamente.");
+        cargarPanelAdmin();
+      } catch (e) {
+        console.error(e);
+        alert("Error al validar el pago.");
+      }
+    }
+
+    async function rechazarAvisoPago(dni, solicitudId) {
+      if (confirm("¿Seguro que querés rechazar esta solicitud de aviso de pago?")) {
+        try {
+          const alumnoRef = window.doc(window.db, "alumnos", dni);
+          await window.updateDoc(alumnoRef, {
+            [`solicitudesAviso.${solicitudId}.estado`]: "rechazado"
+          });
+          alert("Solicitud rechazada.");
+          cargarPanelAdmin();
+        } catch (e) {
+          console.error(e);
+          alert("Error al rechazar solicitud.");
+        }
+      }
+    }
+
+    function prepararEdicion(dni) {
+      const alumno = listaAlumnosCache.find(a => a.dni === dni);
+      if (!alumno) return;
+
+      document.getElementById("form-alumno-titulo").innerText = "✏️ Editar Alumno";
+      document.getElementById("edit-dni-origen").value = alumno.dni;
+      document.getElementById("admin-nombre").value = alumno.nombre;
+      document.getElementById("admin-dni").value = alumno.dni;
+      document.getElementById("admin-fecha-nac").value = alumno.fechaNacimiento || "";
+      document.getElementById("admin-kyu").value = alumno.kyu || "10° Kyu";
+
+      document.getElementById("btn-guardar-alumno").innerText = "Actualizar Datos";
+      document.getElementById("btn-cancelar-edicion").classList.remove("hidden");
+
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function cancelarEdicion() {
+      document.getElementById("form-alumno-titulo").innerText = "👤 Registrar Nuevo Alumno";
+      document.getElementById("edit-dni-origen").value = "";
+      document.getElementById("admin-nombre").value = "";
+      document.getElementById("admin-dni").value = "";
+      document.getElementById("admin-fecha-nac").value = "";
+      document.getElementById("admin-kyu").value = "10° Kyu";
+
+      document.getElementById("btn-guardar-alumno").innerText = "Guardar Alumno";
+      document.getElementById("btn-cancelar-edicion").classList.add("hidden");
+    }
+
+    async function guardarAlumno() {
+      const nombre = document.getElementById("admin-nombre").value.trim();
+      const nuevoDni = document.getElementById("admin-dni").value.trim();
+      const fechaNacimiento = document.getElementById("admin-fecha-nac").value;
+      const kyu = document.getElementById("admin-kyu").value;
+      const dniOrigen = document.getElementById("edit-dni-origen").value;
+
+      if (!nombre || !nuevoDni || !fechaNacimiento) return alert("Por favor completá todos los campos.");
+
+      try {
+        if (dniOrigen) {
+          if (dniOrigen !== nuevoDni) {
+            const alumnoViejoRef = window.doc(window.db, "alumnos", dniOrigen);
+            const docSnap = await window.getDoc(alumnoViejoRef);
+            const datosExistentes = docSnap.exists() ? docSnap.data() : { pagos: {} };
+
+            await window.setDoc(window.doc(window.db, "alumnos", nuevoDni), {
+              ...datosExistentes,
+              nombre: nombre,
+              fechaNacimiento: fechaNacimiento,
+              kyu: kyu
+            });
+
+            await window.deleteDoc(alumnoViejoRef);
+          } else {
+            await window.updateDoc(window.doc(window.db, "alumnos", nuevoDni), {
+              nombre: nombre,
+              fechaNacimiento: fechaNacimiento,
+              kyu: kyu
+            });
+          }
+          alert("Datos actualizados correctamente.");
+        } else {
+          await window.setDoc(window.doc(window.db, "alumnos", nuevoDni), {
+            nombre: nombre,
+            fechaNacimiento: fechaNacimiento,
+            kyu: kyu,
+            baja: false,
+            pagos: {},
+            solicitudesAviso: {}
+          });
+          alert("Alumno registrado correctamente.");
+        }
+
+        cancelarEdicion();
+        cargarPanelAdmin();
+      } catch (e) {
+        console.error(e);
+        alert("Error al guardar alumno.");
+      }
+    }
+
+    async function cambiarEstadoBaja(dni, nombre, darDeBaja) {
+      const accion = darDeBaja ? "dar de baja" : "reactivar";
+      if (confirm(`¿Seguro que querés ${accion} a ${nombre}?`)) {
+        try {
+          await window.updateDoc(window.doc(window.db, "alumnos", dni), {
+            baja: darDeBaja
+          });
+          alert(`El alumno fue ${darDeBaja ? 'dado de baja' : 'reactivado'}.`);
+          cargarPanelAdmin();
+        } catch (e) {
+          console.error(e);
+          alert("Error al actualizar el estado.");
+        }
+      }
+    }
+
+    async function eliminarDefinitivo(dni, nombre) {
+      if (confirm(`⚠️ ATENCIÓN: ¿Seguro que querés ELIMINAR DEFINITIVAMENTE a ${nombre}? Esta acción borrará todo su historial de pagos y no se puede deshacer.`)) {
+        try {
+          await window.deleteDoc(window.doc(window.db, "alumnos", dni));
+          alert("Alumno eliminado de la base de datos.");
+          cargarPanelAdmin();
+        } catch (e) {
+          console.error(e);
+          alert("Error al eliminar alumno.");
+        }
+      }
+    }
+
+    async function togglePagoMes(dni, nombre, mesIndice, nuevoEstado) {
+      const nombreMes = MESES[mesIndice];
+      const accion = nuevoEstado ? "VALIDAR" : "ANULAR";
+
+      if (confirm(`¿Querés ${accion} el pago del mes de ${nombreMes.toUpperCase()} para ${nombre}?`)) {
+        try {
+          const alumnoRef = window.doc(window.db, "alumnos", dni);
+          await window.updateDoc(alumnoRef, {
+            [`pagos.${mesIndice}`]: nuevoEstado
+          });
+
+          alert(`Pago de ${nombreMes} ${nuevoEstado ? 'registrado' : 'anulado'} correctamente para ${nombre}.`);
+          cargarPanelAdmin();
+        } catch (e) {
+          console.error(e);
+          alert("Error al actualizar el pago.");
+        }
+      }
+    }
+
+    async function guardarConfiguracion() {
+      const nuevoMonto = parseFloat(document.getElementById("cfg-monto").value);
+      const nuevoRecargo = parseFloat(document.getElementById("cfg-recargo").value);
+      const nuevoAlias = document.getElementById("cfg-alias").value.trim();
+      const nuevoTelefono = document.getElementById("cfg-telefono").value.trim();
+      const nuevaClave = document.getElementById("cfg-pass").value.trim();
+
+      if (!nuevoMonto || !nuevoAlias || !nuevaClave) {
+        return alert("Por favor completá todos los campos.");
+      }
+
+      configApp = {
+        cuotaBase: nuevoMonto,
+        porcentajeRecargo: nuevoRecargo,
+        alias: nuevoAlias,
+        telefonoWhatsapp: nuevoTelefono,
+        claveAdmin: nuevaClave
+      };
+
+      try {
+        await window.setDoc(window.doc(window.db, "configuracion", "general"), configApp);
+        alert("Configuración actualizada con éxito.");
+        cargarPanelAdmin();
+      } catch (e) {
+        console.error(e);
+        alert("Error al guardar la configuración.");
+      }
+    }
+
+    async function buscarAlumno() {
+      const dni = document.getElementById("input-dni").value.trim();
+      if (!dni) return alert("Por favor ingresá un DNI");
+
+      await cargarConfiguracion();
+
+      try {
+        const docRef = window.doc(window.db, "alumnos", dni);
+        const docSnap = await window.getDoc(docRef);
+
+        if (docSnap.exists()) {
+          const alumno = docSnap.data();
+          if (alumno.baja) {
+            return alert("El DNI ingresado figura como DADO DE BAJA. Por favor consultá con la profesora.");
+          }
+          alumnoActual = alumno;
+          dniActual = dni;
+          mostrarPerfilAlumno();
+        } else {
+          alert("El DNI ingresado no está registrado.");
+        }
+      } catch (e) {
+        console.error(e);
+        alert("Error al conectar con la base de datos.");
+      }
+    }
+
+    function mostrarPerfilAlumno() {
+      mostrarVista("student-view");
+      document.getElementById("student-name").innerText = alumnoActual.nombre;
+      document.getElementById("student-dni").innerText = dniActual;
+      document.getElementById("student-kyu").innerText = alumnoActual.kyu || "10° Kyu";
+      document.getElementById("alias-cbu").innerText = configApp.alias;
+
+      const container = document.getElementById("meses-checkboxes");
+      container.innerHTML = "";
+
+      const mesActualIndice = new Date().getMonth();
+      const pagos = alumnoActual.pagos || {};
+
+      MESES.forEach((mes, idx) => {
+        const estaPagado = !!pagos[idx];
+        const div = document.createElement("label");
+        div.className = `flex items-center justify-between p-2 border rounded ${estaPagado ? 'bg-green-50 border-green-300 opacity-70 cursor-not-allowed' : 'bg-white hover:bg-gray-50 cursor-pointer'}`;
+        
+        div.innerHTML = `
+          <div class="flex items-center gap-2">
+            <input type="checkbox" value="${idx}" ${estaPagado ? 'disabled checked' : ''} class="mes-check accent-red-600" onchange="calcularTotalYPago()">
+            <span class="text-xs font-semibold ${estaPagado ? 'text-green-800 line-through' : ''}">${mes}</span>
+          </div>
+          ${estaPagado ? '<span class="text-[10px] text-green-700 font-bold">PAGADO</span>' : ''}
+        `;
+        container.appendChild(div);
+      });
+
+      const checks = document.querySelectorAll(".mes-check:not([disabled])");
+      checks.forEach(chk => {
+        if (parseInt(chk.value) === mesActualIndice) {
+          chk.checked = true;
+        }
+      });
+
+      calcularTotalYPago();
+    }
+
+    function calcularTotalYPago() {
+      const checks = document.querySelectorAll(".mes-check:checked:not([disabled])");
+      const summaryCard = document.getElementById("summary-card");
+
+      if (checks.length === 0) {
+        summaryCard.classList.add("hidden");
+        mesesSeleccionadosParaAviso = [];
+        montoCalculadoParaAviso = 0;
+        return;
+      }
+
+      const hoy = new Date();
+      const mesActualIndice = hoy.getMonth();
+      const diaActual = hoy.getDate();
+
+      let total = 0;
+      let mesesNombres = [];
+      let conRecargoCount = 0;
+      mesesSeleccionadosParaAviso = [];
+
+      const factorRecargo = 1 + (configApp.porcentajeRecargo / 100);
+
+      checks.forEach((chk) => {
+        const idx = parseInt(chk.value);
+        mesesSeleccionadosParaAviso.push(idx);
+        mesesNombres.push(MESES[idx]);
+
+        let aplicaRecargo = false;
+        if (idx < mesActualIndice) {
+          aplicaRecargo = true;
+        } else if (idx === mesActualIndice && diaActual >= 16) {
+          aplicaRecargo = true;
+        }
+
+        if (aplicaRecargo) {
+          total += configApp.cuotaBase * factorRecargo;
+          conRecargoCount++;
+        } else {
+          total += configApp.cuotaBase;
+        }
+      });
+
+      montoCalculadoParaAviso = total;
+
+      document.getElementById("total-monto").innerText = `$${total.toLocaleString("es-AR")}`;
+      
+      const detalleRecargo = document.getElementById("detalle-recargo");
+      if (conRecargoCount > 0) {
+        detalleRecargo.innerText = `Incluye ${configApp.porcentajeRecargo}% de recargo por mora/vencimiento.`;
+      } else {
+        detalleRecargo.innerText = `A partir del día 16 aplica un ${configApp.porcentajeRecargo}% de recargo.`;
+      }
+
+      const textoMeses = mesesNombres.join(", ");
+      const mensaje = encodeURIComponent(
+        `Hola Profe, te aviso que realicé la transferencia de $${total.toLocaleString("es-AR")} correspondiente a los meses de: ${textoMeses} para el alumno/a ${alumnoActual.nombre} (DNI: ${dniActual}).`
+      );
+
+      const btnWs = document.getElementById("btn-whatsapp");
+      btnWs.href = `https://wa.me/${configApp.telefonoWhatsapp || '5493329000000'}?text=${mensaje}`;
+
+      summaryCard.classList.remove("hidden");
+    }
+  </script>
+</body>
+</html>

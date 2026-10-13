@@ -4,6 +4,12 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Karate Kids - Dojo Scout San Pedro</title>
+
+  <!-- Íconos y configuración para navegador y acceso directo en celular -->
+  <link rel="icon" type="image/png" href="logo.png">
+  <link rel="apple-touch-icon" href="logo.png">
+  <meta name="theme-color" content="#b91c1c">
+
   <script src="https://cdn.tailwindcss.com"></script>
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
@@ -36,10 +42,13 @@
 <body class="bg-gray-100 min-h-screen font-sans text-gray-800">
   <div class="max-w-xl mx-auto bg-white min-h-screen shadow-lg flex flex-col justify-between">
     
-    <!-- Header -->
-    <header class="bg-red-700 text-white p-4 text-center font-bold text-xl shadow flex justify-between items-center">
-      <span onclick="mostrarVista('login-view')" class="cursor-pointer">Karate Kids - Dojo Scout</span>
-      <button onclick="solicitarAccesoAdmin()" class="text-xs bg-red-800 hover:bg-red-900 px-2 py-1 rounded transition">Panel Profe</button>
+    <!-- Header con Logo -->
+    <header class="bg-red-700 text-white p-3 text-center font-bold text-xl shadow flex justify-between items-center">
+      <div onclick="mostrarVista('login-view')" class="flex items-center gap-2 cursor-pointer">
+        <img src="logo.png" alt="Karate Kids" class="h-9 w-9 object-contain bg-white rounded-full p-0.5">
+        <span class="font-bold text-lg sm:text-xl">Karate Kids - Dojo</span>
+      </div>
+      <button onclick="solicitarAccesoAdmin()" class="text-xs bg-red-800 hover:bg-red-900 px-2.5 py-1.5 rounded transition">Panel Profe</button>
     </header>
 
     <!-- Contenido Principal -->
